@@ -1,20 +1,23 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Rảnh Rang Cafe
 
-# Run and deploy your AI Studio app
+Một góc nhỏ bình yên để bạn gác lại âu lo, thưởng thức tách cà phê thơm lừng và tận hưởng những khoảnh khắc thảnh thơi giữa lòng phố thị.
 
-This contains everything you need to run your app locally.
+## Tính năng
 
-View your app in AI Studio: https://ai.studio/apps/512c73cf-b8e6-481a-bf68-fc5285a8e8a0
+- **Trang chủ**: Giới thiệu về quán, không gian và câu chuyện thương hiệu.
+- **Thực đơn**: Danh sách các món uống và bánh ngọt đặc trưng.
+- **Dịch vụ**: Các dịch vụ đi kèm như Takeout, Outdoor Seating, Workshops.
+- **Admin Panel**: Cho phép chỉnh sửa nội dung trực tiếp trên giao diện (cần đăng nhập).
 
-## Run Locally
+## Công nghệ sử dụng
 
-**Prerequisites:**  Node.js
+- React (Vite)
+- Tailwind CSS
+- Framer Motion (cho hiệu ứng chuyển động)
+- Lucide React (Icons)
 
+## Cài đặt và chạy dự án
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+1. Clone dự án về máy.
+2. Cài đặt dependencies: `npm install`
+3. Chạy server development: `npm run dev`

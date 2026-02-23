@@ -1,4 +1,4 @@
-import { useState, useEffect, FormEvent } from 'react';
+import React, { useState, useEffect, FormEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Coffee, 
@@ -18,8 +18,12 @@ import {
   LogIn,
   LogOut,
   Save,
-  Phone
+  Phone,
+  Upload
 } from 'lucide-react';
+import { storage, db } from './firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 // Initial Data
 const INITIAL_DATA = {
@@ -93,50 +97,174 @@ const IconMap: Record<string, any> = {
   ShoppingBag, Trees, Store, GraduationCap, Coffee
 };
 
-export default function App() {
+// Error Boundary Component
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error("ErrorBoundary caught an error", error, errorInfo);
+  }
+
+  handleReset = () => {
+    localStorage.removeItem('siteContent');
+    window.location.reload();
+  };
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center bg-brand-cream text-brand-dark p-4 text-center">
+          <h1 className="text-2xl font-bold mb-4">Đã xảy ra lỗi!</h1>
+          <p className="mb-4">Dữ liệu có thể bị hỏng hoặc kết nối gặp vấn đề.</p>
+          <div className="flex gap-4">
+            <button 
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-brand-green text-white rounded-lg hover:bg-brand-green/90"
+            >
+              Tải lại trang
+            </button>
+            <button 
+              onClick={this.handleReset}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+            >
+              Đặt lại dữ liệu gốc
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+export default function AppWrapper() {
+  return (
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
+  );
+}
+
+function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [password, setPassword] = useState("");
   
   // Content State
-  const [content, setContent] = useState(() => {
-    try {
-      const saved = localStorage.getItem('siteContent');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        
-        // Data Repair: Fix gallery if it became an object { gallery: [...] } instead of [...]
-        if (parsed.gallery && !Array.isArray(parsed.gallery) && Array.isArray(parsed.gallery.gallery)) {
-          parsed.gallery = parsed.gallery.gallery;
-        }
-        // Data Repair: Fix services if needed
-        if (parsed.services && !Array.isArray(parsed.services) && Array.isArray(parsed.services.services)) {
-          parsed.services = parsed.services.services;
-        }
+  const [content, setContent] = useState(INITIAL_DATA);
+  const [isLoading, setIsLoading] = useState(true);
+  const [firebaseError, setFirebaseError] = useState<string | null>(null);
 
-        // Merge saved content with INITIAL_DATA
-        return { 
-          ...INITIAL_DATA, 
-          ...parsed,
-          hero: { ...INITIAL_DATA.hero, ...parsed.hero || {} },
-          footer: { ...INITIAL_DATA.footer, ...parsed.footer || {} },
-          partner: { ...INITIAL_DATA.partner, ...parsed.partner || {} }
-        };
-      }
-      return INITIAL_DATA;
-    } catch (e) {
-      return INITIAL_DATA;
-    }
-  });
-
-  // Editing State
-  const [editingSection, setEditingSection] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<any>(null);
-
+  // Fetch data from Firestore on mount
   useEffect(() => {
-    localStorage.setItem('siteContent', JSON.stringify(content));
-  }, [content]);
+    const fetchData = async () => {
+      if (!db) {
+        console.warn("Firestore not initialized, falling back to local storage");
+        setFirebaseError("Không thể kết nối Firebase. Đang sử dụng dữ liệu nội bộ.");
+        try {
+          const saved = localStorage.getItem('siteContent');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            setContent(prev => ({
+              ...INITIAL_DATA,
+              ...parsed,
+              hero: { ...INITIAL_DATA.hero, ...(parsed?.hero || {}) },
+              footer: { ...INITIAL_DATA.footer, ...(parsed?.footer || {}) },
+              partner: { ...INITIAL_DATA.partner, ...(parsed?.partner || {}) },
+              menu: { ...INITIAL_DATA.menu, ...(parsed?.menu || {}) },
+              branding: { ...INITIAL_DATA.branding, ...(parsed?.branding || {}) }
+            }));
+          }
+        } catch (e) {
+          console.error("Local storage corrupted", e);
+        }
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const docRef = doc(db, "siteContent", "main");
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+          const parsed = docSnap.data();
+          // Data Repair & Merge logic
+          if (parsed.gallery && !Array.isArray(parsed.gallery) && Array.isArray(parsed.gallery.gallery)) {
+            parsed.gallery = parsed.gallery.gallery;
+          }
+          if (parsed.services && !Array.isArray(parsed.services) && Array.isArray(parsed.services.services)) {
+            parsed.services = parsed.services.services;
+          }
+
+          setContent({ 
+            ...INITIAL_DATA, 
+            ...parsed,
+            hero: { ...INITIAL_DATA.hero, ...(parsed?.hero || {}) },
+            footer: { ...INITIAL_DATA.footer, ...(parsed?.footer || {}) },
+            partner: { ...INITIAL_DATA.partner, ...(parsed?.partner || {}) },
+            menu: { ...INITIAL_DATA.menu, ...(parsed?.menu || {}) },
+            branding: { ...INITIAL_DATA.branding, ...(parsed?.branding || {}) }
+          });
+        } else {
+          // If no data exists in Firestore, save INITIAL_DATA
+          await setDoc(docRef, INITIAL_DATA);
+        }
+      } catch (error: any) {
+        console.error("Error fetching data from Firestore:", error);
+        setFirebaseError("Lỗi kết nối dữ liệu: " + (error.message || "Unknown error"));
+        
+        // Fallback to localStorage
+        try {
+          const saved = localStorage.getItem('siteContent');
+          if (saved) {
+             const parsed = JSON.parse(saved);
+             setContent(prev => ({
+                ...INITIAL_DATA,
+                ...parsed,
+                hero: { ...INITIAL_DATA.hero, ...(parsed?.hero || {}) },
+                footer: { ...INITIAL_DATA.footer, ...(parsed?.footer || {}) },
+                partner: { ...INITIAL_DATA.partner, ...(parsed?.partner || {}) },
+                menu: { ...INITIAL_DATA.menu, ...(parsed?.menu || {}) },
+                branding: { ...INITIAL_DATA.branding, ...(parsed?.branding || {}) }
+             }));
+          }
+        } catch (e) {
+          console.error("Local storage corrupted", e);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Save to Firestore whenever content changes (debounced could be better, but direct for now)
+  useEffect(() => {
+    if (!isLoading) {
+      const saveData = async () => {
+        try {
+          if (db) {
+            await setDoc(doc(db, "siteContent", "main"), content);
+          }
+          localStorage.setItem('siteContent', JSON.stringify(content)); // Keep local backup
+        } catch (error) {
+          console.error("Error saving to Firestore:", error);
+        }
+      };
+      const timeoutId = setTimeout(saveData, 1000); // Debounce 1s
+      return () => clearTimeout(timeoutId);
+    }
+  }, [content, isLoading]);
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
@@ -184,6 +312,40 @@ export default function App() {
       setEditForm(null);
     }
   };
+
+  const handleImageUpload = async (file: File, key: string, isArray = false, index = -1) => {
+    if (!file) return;
+    if (!storage) {
+      alert("Firebase Storage chưa được kết nối. Vui lòng kiểm tra cấu hình.");
+      return;
+    }
+
+    try {
+      const storageRef = ref(storage, `images/${Date.now()}_${file.name}`);
+      const snapshot = await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+
+      if (isArray && index !== -1) {
+        const currentArray = editForm[key] as string[];
+        const newArray = [...currentArray];
+        newArray[index] = downloadURL;
+        setEditForm({ ...editForm, [key]: newArray });
+      } else {
+        setEditForm({ ...editForm, [key]: downloadURL });
+      }
+    } catch (error) {
+      console.error("Error uploading image: ", error);
+      alert("Lỗi tải ảnh lên! Vui lòng kiểm tra cấu hình Firebase trong file .env");
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-brand-cream">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-green"></div>
+      </div>
+    );
+  }
 
   // Helper to render edit button
   const EditBtn = ({ section, data, className = "" }: { section: string, data: any, className?: string }) => (
@@ -267,35 +429,71 @@ export default function App() {
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green outline-none"
                           />
                         )}
+                        {(key.toLowerCase().includes('image') || key.toLowerCase().includes('img') || key === 'logoUrl') && (
+                          <div className="mt-2">
+                            <label className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg cursor-pointer transition-colors w-fit text-sm">
+                              <Upload className="w-4 h-4" />
+                              <span>Tải ảnh lên</span>
+                              <input 
+                                type="file" 
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => {
+                                  if (e.target.files?.[0]) {
+                                    handleImageUpload(e.target.files[0], key);
+                                  }
+                                }}
+                              />
+                            </label>
+                          </div>
+                        )}
                       </div>
                     );
                   }
-                  // Handle Array of Strings (e.g., features)
+                  // Handle Array of Strings (e.g., features, gallery)
                   if (Array.isArray(value) && typeof value[0] === 'string') {
                      return (
                       <div key={key}>
                         <label className="block text-sm font-medium text-gray-700 mb-2 capitalize">{key}</label>
                         {value.map((item: string, idx: number) => (
-                          <div key={idx} className="flex gap-2 mb-2">
-                            <input 
-                              type="text" 
-                              value={item}
-                              onChange={(e) => {
-                                const newArr = [...value];
-                                newArr[idx] = e.target.value;
-                                setEditForm({...editForm, [key]: newArr});
-                              }}
-                              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green outline-none"
-                            />
-                            <button 
-                              onClick={() => {
-                                const newArr = value.filter((_, i) => i !== idx);
-                                setEditForm({...editForm, [key]: newArr});
-                              }}
-                              className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
-                            >
-                              <Trash2 className="w-5 h-5" />
-                            </button>
+                          <div key={idx} className="flex flex-col gap-2 mb-4">
+                            <div className="flex gap-2">
+                              <input 
+                                type="text" 
+                                value={item}
+                                onChange={(e) => {
+                                  const newArr = [...value];
+                                  newArr[idx] = e.target.value;
+                                  setEditForm({...editForm, [key]: newArr});
+                                }}
+                                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green outline-none"
+                              />
+                              <button 
+                                onClick={() => {
+                                  const newArr = value.filter((_, i) => i !== idx);
+                                  setEditForm({...editForm, [key]: newArr});
+                                }}
+                                className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </button>
+                            </div>
+                            {(key === 'gallery' || item.startsWith('http')) && (
+                              <label className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg cursor-pointer transition-colors w-fit text-sm">
+                                <Upload className="w-4 h-4" />
+                                <span>Thay ảnh</span>
+                                <input 
+                                  type="file" 
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    if (e.target.files?.[0]) {
+                                      handleImageUpload(e.target.files[0], key, true, idx);
+                                    }
+                                  }}
+                                />
+                              </label>
+                            )}
                           </div>
                         ))}
                         <button 
@@ -379,6 +577,17 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Firebase Error Banner */}
+      {firebaseError && (
+        <div className="fixed bottom-4 left-4 right-4 z-50 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative shadow-lg" role="alert">
+          <strong className="font-bold">Cảnh báo: </strong>
+          <span className="block sm:inline">{firebaseError}</span>
+          <span className="absolute top-0 bottom-0 right-0 px-4 py-3" onClick={() => setFirebaseError(null)}>
+            <X className="w-6 h-6 text-red-500 cursor-pointer" />
+          </span>
+        </div>
+      )}
 
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-brand-cream/90 backdrop-blur-md border-b border-brand-green/10 group/nav">
