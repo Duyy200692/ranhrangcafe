@@ -252,7 +252,7 @@ export default function App() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green focus:border-transparent outline-none"
-                    placeholder="Nhập mật khẩu (admin123)"
+                    placeholder="Nhập mật khẩu"
                   />
                 </div>
                 <button type="submit" className="w-full bg-brand-green text-white py-3 rounded-lg font-medium hover:bg-brand-green/90 transition-colors">
