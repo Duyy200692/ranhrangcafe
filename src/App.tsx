@@ -1,5 +1,7 @@
 import { useState, useEffect, FormEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { doc, onSnapshot, setDoc } from "firebase/firestore";
+import { db } from "./firebase";
 import { 
   Coffee, 
   MapPin, 
@@ -99,54 +101,61 @@ export default function App() {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [password, setPassword] = useState("");
   
-  // Content State
-  const [content, setContent] = useState(() => {
-    try {
-      // Use a unique key to avoid conflicts with other apps on localhost
-      const saved = localStorage.getItem('ranhrang_cafe_content');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        
-        // Validate parsed data is an object and not null
-        if (!parsed || typeof parsed !== 'object') {
-          return INITIAL_DATA;
-        }
-
-        // Data Repair: Fix gallery if it became an object { gallery: [...] } instead of [...]
-        if (parsed.gallery && !Array.isArray(parsed.gallery) && Array.isArray(parsed.gallery.gallery)) {
-          parsed.gallery = parsed.gallery.gallery;
-        }
-        // Data Repair: Fix services if needed
-        if (parsed.services && !Array.isArray(parsed.services) && Array.isArray(parsed.services.services)) {
-          parsed.services = parsed.services.services;
-        }
-
-        // Merge saved content with INITIAL_DATA safely
-        return { 
-          ...INITIAL_DATA, 
-          ...parsed,
-          hero: { ...INITIAL_DATA.hero, ...(parsed.hero || {}) },
-          footer: { ...INITIAL_DATA.footer, ...(parsed.footer || {}) },
-          partner: { ...INITIAL_DATA.partner, ...(parsed.partner || {}) },
-          branding: { ...INITIAL_DATA.branding, ...(parsed.branding || {}) },
-          menu: { ...INITIAL_DATA.menu, ...(parsed.menu || {}) },
-          workshop: { ...INITIAL_DATA.workshop, ...(parsed.workshop || {}) },
-        };
-      }
-      return INITIAL_DATA;
-    } catch (e) {
-      console.error("Failed to load content from localStorage", e);
-      return INITIAL_DATA;
-    }
-  });
+  // Content State - Initialize with INITIAL_DATA, then fetch from Firebase
+  const [content, setContent] = useState(INITIAL_DATA);
 
   // Editing State
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>(null);
 
+  // Sync with Firebase
   useEffect(() => {
-    localStorage.setItem('ranhrang_cafe_content', JSON.stringify(content));
-  }, [content]);
+    if (!db) {
+      console.error("Firebase DB not initialized");
+      return;
+    }
+
+    const unsub = onSnapshot(doc(db, "content", "main"), (docSnapshot) => {
+      if (docSnapshot.exists()) {
+        const data = docSnapshot.data();
+        // Merge with INITIAL_DATA to ensure structure integrity
+        setContent((prev) => ({
+          ...INITIAL_DATA,
+          ...data,
+          hero: { ...INITIAL_DATA.hero, ...(data.hero || {}) },
+          footer: { ...INITIAL_DATA.footer, ...(data.footer || {}) },
+          partner: { ...INITIAL_DATA.partner, ...(data.partner || {}) },
+          branding: { ...INITIAL_DATA.branding, ...(data.branding || {}) },
+          menu: { ...INITIAL_DATA.menu, ...(data.menu || {}) },
+          workshop: { ...INITIAL_DATA.workshop, ...(data.workshop || {}) },
+        }));
+      } else {
+        // If document doesn't exist, create it with INITIAL_DATA
+        // Check if we have local data to migrate first
+        const localSaved = localStorage.getItem('ranhrang_cafe_content');
+        let initialDataToSave = INITIAL_DATA;
+        
+        if (localSaved) {
+           try {
+             const parsed = JSON.parse(localSaved);
+             if (parsed && typeof parsed === 'object') {
+               initialDataToSave = { ...INITIAL_DATA, ...parsed };
+             }
+           } catch (e) {
+             console.error("Error parsing local data for migration", e);
+           }
+        }
+        
+        setDoc(doc(db, "content", "main"), initialDataToSave).catch(err => 
+          console.error("Failed to initialize Firestore data", err)
+        );
+      }
+    }, (error) => {
+      console.error("Firestore sync error:", error);
+    });
+
+    return () => unsub();
+  }, []);
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
@@ -170,28 +179,41 @@ export default function App() {
     setEditForm(JSON.parse(JSON.stringify(data))); // Deep copy
   };
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (editingSection) {
-      setContent((prev: any) => {
-        const newData = { ...prev };
+      const newContent = { ...content };
         
-        // Handle nested updates based on section key logic
-        if (editingSection.includes('.')) {
-          const [parent, child] = editingSection.split('.');
-          newData[parent][child] = editForm;
+      // Handle nested updates based on section key logic
+      if (editingSection.includes('.')) {
+        const [parent, child] = editingSection.split('.');
+        // @ts-ignore
+        newContent[parent][child] = editForm;
+      } else {
+        // Check if we are editing a top-level key that is an array in the content
+        // but wrapped in an object in editForm (like gallery or services)
+        if (editForm && typeof editForm === 'object' && editingSection in editForm) {
+            // @ts-ignore
+           newContent[editingSection] = editForm[editingSection];
         } else {
-          // Check if we are editing a top-level key that is an array in the content
-          // but wrapped in an object in editForm (like gallery or services)
-          if (editForm && typeof editForm === 'object' && editingSection in editForm) {
-             newData[editingSection] = editForm[editingSection];
-          } else {
-             newData[editingSection] = editForm;
-          }
+            // @ts-ignore
+           newContent[editingSection] = editForm;
         }
-        return newData;
-      });
+      }
+      
+      // Optimistic update
+      setContent(newContent);
       setEditingSection(null);
       setEditForm(null);
+
+      // Save to Firebase
+      if (db) {
+        try {
+          await setDoc(doc(db, "content", "main"), newContent);
+        } catch (error) {
+          console.error("Failed to save to Firebase:", error);
+          alert("Lỗi khi lưu dữ liệu lên server. Vui lòng thử lại.");
+        }
+      }
     }
   };
 

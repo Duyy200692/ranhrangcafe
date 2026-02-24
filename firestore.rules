@@ -1,0 +1,11 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      // CHO PHÉP TẤT CẢ: Cần thiết vì hiện tại ứng dụng chưa có đăng nhập Firebase Auth thật sự.
+      // Cảnh báo: Bất kỳ ai có cấu hình Firebase đều có thể đọc/ghi dữ liệu.
+      // Sau này nên cập nhật lại để chỉ cho phép admin đã đăng nhập.
+      allow read, write: if true;
+    }
+  }
+}
