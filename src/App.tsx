@@ -35,11 +35,41 @@ const INITIAL_DATA = {
     imageRatio: "4/5"
   },
   services: [
-    { icon: "ShoppingBag", label: "Takeout", desc: "Mang đi tiện lợi" },
-    { icon: "Trees", label: "Outdoor Seating", desc: "Không gian ngoài trời thoáng đãng" },
-    { icon: "Store", label: "In-store Pickup", desc: "Đặt trước, lấy ngay tại quán" },
-    { icon: "GraduationCap", label: "Workshops", desc: "Các lớp học pha chế & nghệ thuật" },
-    { icon: "Coffee", label: "In-store Shopping", desc: "Mua sắm hạt cà phê & dụng cụ" },
+    { 
+      icon: "ShoppingBag", 
+      label: "Takeout", 
+      desc: "Mang đi tiện lợi",
+      details: "Dịch vụ mang đi nhanh chóng với bao bì thân thiện môi trường. Đặt trước qua hotline để không phải chờ đợi.",
+      image: "https://picsum.photos/seed/takeout/600/400"
+    },
+    { 
+      icon: "Trees", 
+      label: "Outdoor Seating", 
+      desc: "Không gian ngoài trời thoáng đãng",
+      details: "Tận hưởng không khí trong lành với khu vực ngồi ngoài trời rợp bóng cây xanh, lý tưởng cho những buổi sáng sớm hoặc chiều tà.",
+      image: "https://picsum.photos/seed/outdoor/600/400"
+    },
+    { 
+      icon: "Store", 
+      label: "In-store Pickup", 
+      desc: "Đặt trước, lấy ngay tại quán",
+      details: "Tiết kiệm thời gian bằng cách đặt món trước qua ứng dụng hoặc điện thoại. Đồ uống của bạn sẽ sẵn sàng ngay khi bạn đến.",
+      image: "https://picsum.photos/seed/pickup/600/400"
+    },
+    { 
+      icon: "GraduationCap", 
+      label: "Workshops", 
+      desc: "Các lớp học pha chế & nghệ thuật",
+      details: "Tham gia các buổi workshop cuối tuần: học pha chế cà phê, vẽ tranh, làm nến thơm... để khơi dậy sự sáng tạo trong bạn.",
+      image: "https://picsum.photos/seed/workshop_service/600/400"
+    },
+    { 
+      icon: "Coffee", 
+      label: "In-store Shopping", 
+      desc: "Mua sắm hạt cà phê & dụng cụ",
+      details: "Cung cấp các loại hạt cà phê rang xay chất lượng cao và dụng cụ pha chế tại nhà cho những tín đồ yêu cà phê.",
+      image: "https://picsum.photos/seed/shopping/600/400"
+    },
   ],
   menu: {
     title: "Hương Vị\nĐặc Trưng",
@@ -87,6 +117,18 @@ const INITIAL_DATA = {
     description: "Chúng tôi tự hào sử dụng những hạt cà phê thượng hạng được rang xay cẩn thận bởi Ysim Coffee Roasters, mang đến hương vị đậm đà và tinh tế nhất.",
     image: "https://picsum.photos/seed/roaster/800/600",
     link: "https://www.instagram.com/ysim.coffee.roasters/"
+  },
+  farmToCup: {
+    title: "Hành Trình Từ Nông Trại",
+    subtitle: "From Farm To Cup",
+    description: "Chúng tôi tin rằng một tách cà phê ngon bắt đầu từ những hạt cà phê được vun trồng bằng tình yêu và sự tử tế. Rảnh Rang hợp tác trực tiếp với các nông hộ tại Đà Lạt và Buôn Ma Thuột để mang đến những hạt cà phê chất lượng nhất.",
+    steps: [
+      { title: "Vun Trồng", desc: "Canh tác bền vững, tôn trọng thổ nhưỡng." },
+      { title: "Thu Hoạch", desc: "Hái chín 100% bằng tay để đảm bảo độ ngọt." },
+      { title: "Sơ Chế", desc: "Kiểm soát lên men nghiêm ngặt, giữ trọn hương vị." },
+      { title: "Rang Xay", desc: "Rang mộc thủ công, đánh thức mọi giác quan." }
+    ],
+    image: "https://picsum.photos/seed/farm/1200/600"
   }
 };
 
@@ -107,6 +149,9 @@ export default function App() {
   // Editing State
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>(null);
+  
+  // Interactive Service State
+  const [selectedService, setSelectedService] = useState<any>(null);
 
   // Sync with Firebase
   useEffect(() => {
@@ -128,6 +173,7 @@ export default function App() {
           branding: { ...INITIAL_DATA.branding, ...(data.branding || {}) },
           menu: { ...INITIAL_DATA.menu, ...(data.menu || {}) },
           workshop: { ...INITIAL_DATA.workshop, ...(data.workshop || {}) },
+          farmToCup: { ...INITIAL_DATA.farmToCup, ...(data.farmToCup || {}) },
         }));
       } else {
         // If document doesn't exist, create it with INITIAL_DATA
@@ -176,7 +222,20 @@ export default function App() {
 
   const startEdit = (section: string, data: any) => {
     setEditingSection(section);
-    setEditForm(JSON.parse(JSON.stringify(data))); // Deep copy
+    const dataCopy = JSON.parse(JSON.stringify(data));
+    
+    // Ensure all fields exist for services so inputs are generated
+    if (section === 'services' && Array.isArray(dataCopy.services)) {
+      dataCopy.services = dataCopy.services.map((service: any) => ({
+        icon: service.icon || "Store",
+        label: service.label || "",
+        desc: service.desc || "",
+        details: service.details || "",
+        image: service.image || ""
+      }));
+    }
+
+    setEditForm(dataCopy); 
   };
 
   const saveEdit = async () => {
@@ -412,6 +471,84 @@ export default function App() {
         )}
       </AnimatePresence>
 
+      {/* Service Details Modal */}
+      <AnimatePresence>
+        {selectedService && (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setSelectedService(null)}
+          >
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-white rounded-3xl overflow-hidden shadow-2xl w-full max-w-lg relative"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button 
+                onClick={() => setSelectedService(null)} 
+                className="absolute top-4 right-4 z-10 p-2 bg-black/20 hover:bg-black/40 text-white rounded-full transition-colors backdrop-blur-md"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              
+              <div className="h-48 sm:h-64 overflow-hidden relative">
+                <img 
+                  src={selectedService.image || "https://picsum.photos/seed/coffee/800/600"} 
+                  alt={selectedService.label} 
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                <div className="absolute bottom-4 left-6 text-white z-10">
+                  <div className="flex items-center gap-2 mb-1">
+                    {IconMap[selectedService.icon] && (
+                      <div className="p-1.5 bg-brand-accent rounded-lg">
+                         {(() => {
+                            const Icon = IconMap[selectedService.icon];
+                            return <Icon className="w-4 h-4 text-white" />;
+                         })()}
+                      </div>
+                    )}
+                    <span className="text-xs font-bold tracking-wider uppercase bg-white/20 px-2 py-1 rounded backdrop-blur-sm">Dịch vụ</span>
+                  </div>
+                  <h3 className="text-2xl sm:text-3xl font-serif font-bold">{selectedService.label}</h3>
+                </div>
+              </div>
+
+              <div className="p-6 sm:p-8">
+                <p className="text-lg font-medium text-brand-green mb-3">{selectedService.desc}</p>
+                <p className="text-brand-dark/70 leading-relaxed mb-6">
+                  {selectedService.details || "Thông tin chi tiết đang được cập nhật. Vui lòng liên hệ trực tiếp với chúng tôi để biết thêm chi tiết."}
+                </p>
+                
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => {
+                      setSelectedService(null);
+                      // Scroll to contact section
+                      document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    className="flex-1 py-3 bg-brand-green text-white rounded-xl font-medium hover:bg-brand-green/90 transition-colors shadow-lg shadow-brand-green/20"
+                  >
+                    Liên hệ ngay
+                  </button>
+                  <button 
+                    onClick={() => setSelectedService(null)}
+                    className="px-6 py-3 border border-gray-200 text-gray-600 rounded-xl font-medium hover:bg-gray-50 transition-colors"
+                  >
+                    Đóng
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-brand-cream/90 backdrop-blur-md border-b border-brand-green/10 group/nav">
         <EditBtn section="branding" data={content.branding} className="top-4 left-4" />
@@ -561,13 +698,23 @@ export default function App() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: index * 0.1 }}
-                  className="flex flex-col items-center text-center p-6 rounded-2xl hover:bg-brand-cream transition-colors group"
+                  whileHover={{ scale: 1.05, y: -5 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setSelectedService(service)}
+                  className="flex flex-col items-center text-center p-6 rounded-2xl hover:bg-brand-cream transition-all duration-300 group cursor-pointer hover:shadow-xl border border-transparent hover:border-brand-green/10"
                 >
-                  <div className="w-14 h-14 bg-brand-green/5 text-brand-green rounded-full flex items-center justify-center mb-4 group-hover:bg-brand-green group-hover:text-brand-cream transition-colors">
-                    <IconComponent className="w-6 h-6" />
-                  </div>
-                  <h3 className="font-serif font-bold text-lg mb-2">{service.label}</h3>
-                  <p className="text-sm text-brand-dark/60">{service.desc}</p>
+                  <motion.div 
+                    className="w-16 h-16 bg-brand-green/5 text-brand-green rounded-full flex items-center justify-center mb-4 group-hover:bg-brand-green group-hover:text-brand-cream transition-colors shadow-sm"
+                    whileHover={{ rotate: [0, -10, 10, -10, 0] }}
+                    transition={{ duration: 0.5 }}
+                  >
+                    <IconComponent className="w-7 h-7" />
+                  </motion.div>
+                  <h3 className="font-serif font-bold text-lg mb-2 group-hover:text-brand-green transition-colors">{service.label}</h3>
+                  <p className="text-sm text-brand-dark/60 line-clamp-2">{service.desc}</p>
+                  <span className="mt-4 text-xs font-medium text-brand-accent opacity-0 group-hover:opacity-100 transition-opacity transform translate-y-2 group-hover:translate-y-0">
+                    Xem chi tiết →
+                  </span>
                 </motion.div>
               );
             })}
@@ -651,6 +798,44 @@ export default function App() {
                 Đăng Ký Ngay
               </button>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Farm To Cup Section */}
+      <section className="py-20 bg-brand-cream relative group/section">
+        <EditBtn section="farmToCup" data={content.farmToCup} className="top-4 right-4" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <span className="inline-block py-1 px-3 rounded-full bg-brand-green/10 text-brand-green text-sm font-semibold tracking-wide mb-4">
+              {content.farmToCup?.subtitle || "From Farm To Cup"}
+            </span>
+            <h2 className="text-3xl md:text-4xl font-serif font-bold text-brand-green mb-6">{content.farmToCup?.title || "Hành Trình Từ Nông Trại"}</h2>
+            <p className="text-brand-dark/70 max-w-2xl mx-auto leading-relaxed">
+              {content.farmToCup?.description}
+            </p>
+          </div>
+
+          <div className="relative rounded-3xl overflow-hidden shadow-2xl mb-16 h-64 md:h-96">
+             <img 
+               src={content.farmToCup?.image || "https://picsum.photos/seed/farm/1200/600"} 
+               alt="Coffee Farm" 
+               className="w-full h-full object-cover"
+               referrerPolicy="no-referrer"
+             />
+             <div className="absolute inset-0 bg-black/20"></div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {content.farmToCup?.steps?.map((step: any, idx: number) => (
+              <div key={idx} className="bg-white p-6 rounded-2xl shadow-sm hover:shadow-md transition-shadow border border-brand-green/5">
+                <div className="w-10 h-10 bg-brand-accent/10 text-brand-accent rounded-full flex items-center justify-center font-bold font-serif text-lg mb-4">
+                  {idx + 1}
+                </div>
+                <h3 className="font-serif font-bold text-xl text-brand-green mb-2">{step.title}</h3>
+                <p className="text-brand-dark/60 text-sm">{step.desc}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
