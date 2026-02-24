@@ -601,7 +601,7 @@ export default function App() {
 
             <div className="bg-brand-cream/5 backdrop-blur-sm rounded-3xl p-8 border border-white/10">
               <div className="space-y-8">
-                {content.menu?.items?.map((item: any, idx: number) => (
+                {content.menu?.items?.filter((item: any) => item.name || item.price).map((item: any, idx: number) => (
                   <div key={idx} className="flex justify-between items-start group cursor-default">
                     <div>
                       <h3 className="font-serif font-bold text-xl mb-1 group-hover:text-brand-accent transition-colors">{item.name}</h3>
