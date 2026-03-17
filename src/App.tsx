@@ -174,6 +174,12 @@ export default function App() {
           menu: { ...INITIAL_DATA.menu, ...(data.menu || {}) },
           workshop: { ...INITIAL_DATA.workshop, ...(data.workshop || {}) },
           farmToCup: { ...INITIAL_DATA.farmToCup, ...(data.farmToCup || {}) },
+          // Ensure gallery is an array and filter out empty strings
+          gallery: Array.isArray(data.gallery) 
+            ? data.gallery.filter(url => url && typeof url === 'string' && url.trim() !== "") 
+            : INITIAL_DATA.gallery,
+          // Ensure services is an array
+          services: Array.isArray(data.services) ? data.services : INITIAL_DATA.services,
         }));
       } else {
         // If document doesn't exist, create it with INITIAL_DATA
@@ -251,8 +257,13 @@ export default function App() {
         // Check if we are editing a top-level key that is an array in the content
         // but wrapped in an object in editForm (like gallery or services)
         if (editForm && typeof editForm === 'object' && editingSection in editForm) {
+            let dataToSave = editForm[editingSection];
+            // Clean up gallery array if that's what we're editing
+            if (editingSection === 'gallery' && Array.isArray(dataToSave)) {
+              dataToSave = dataToSave.filter((url: any) => url && typeof url === 'string' && url.trim() !== "");
+            }
             // @ts-ignore
-           newContent[editingSection] = editForm[editingSection];
+           newContent[editingSection] = dataToSave;
         } else {
             // @ts-ignore
            newContent[editingSection] = editForm;
@@ -896,7 +907,7 @@ export default function App() {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {Array.isArray(content.gallery) && content.gallery.map((imgUrl: string, i: number) => (
+            {Array.isArray(content.gallery) && content.gallery.filter(url => url && url.trim() !== "").map((imgUrl: string, i: number) => (
               <div key={i} className="rounded-xl overflow-hidden aspect-[3/4] group relative">
                 <img 
                   src={imgUrl} 
