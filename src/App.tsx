@@ -137,6 +137,33 @@ const IconMap: Record<string, any> = {
   ShoppingBag, Trees, Store, GraduationCap, Coffee
 };
 
+// Helper Component for Image with Fallback
+const ImageWithFallback = ({ src, alt, className, fallback = "https://picsum.photos/seed/coffee/800/600", ...props }: any) => {
+  const [imgSrc, setImgSrc] = useState(src);
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    setImgSrc(src);
+    setHasError(false);
+  }, [src]);
+
+  return (
+    <img
+      {...props}
+      src={hasError ? fallback : (imgSrc || fallback)}
+      alt={alt}
+      className={className}
+      onError={() => {
+        if (!hasError) {
+          setHasError(true);
+          setImgSrc(fallback);
+        }
+      }}
+      referrerPolicy="no-referrer"
+    />
+  );
+};
+
 export default function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -507,11 +534,11 @@ export default function App() {
               </button>
               
               <div className="h-48 sm:h-64 overflow-hidden relative">
-                <img 
-                  src={selectedService.image || "https://picsum.photos/seed/coffee/800/600"} 
+                <ImageWithFallback 
+                  src={selectedService.image} 
+                  fallback="https://picsum.photos/seed/coffee/800/600"
                   alt={selectedService.label} 
                   className="w-full h-full object-cover"
-                  referrerPolicy="no-referrer"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
                 <div className="absolute bottom-4 left-6 text-white z-10">
@@ -674,11 +701,11 @@ export default function App() {
                 className="rounded-2xl overflow-hidden shadow-2xl relative z-10 rotate-2 hover:rotate-0 transition-transform duration-500 w-full"
                 style={{ aspectRatio: content.hero.imageRatio || "4/5" }}
               >
-                <img 
+                <ImageWithFallback 
                   src={content.hero.image} 
+                  fallback="https://picsum.photos/seed/coffee1/800/1000"
                   alt="Rảnh Rang Cafe Interior" 
                   className="w-full h-full object-cover"
-                  referrerPolicy="no-referrer"
                 />
               </div>
               <div className="absolute -bottom-6 -left-6 w-48 h-48 bg-brand-accent/10 rounded-full blur-3xl -z-10"></div>
@@ -828,11 +855,11 @@ export default function App() {
           </div>
 
           <div className="relative rounded-3xl overflow-hidden shadow-2xl mb-16 h-64 md:h-96">
-             <img 
-               src={content.farmToCup?.image || "https://picsum.photos/seed/farm/1200/600"} 
+             <ImageWithFallback 
+               src={content.farmToCup?.image} 
+               fallback="https://picsum.photos/seed/farm/1200/600"
                alt="Coffee Farm" 
                className="w-full h-full object-cover"
-               referrerPolicy="no-referrer"
              />
              <div className="absolute inset-0 bg-black/20"></div>
           </div>
@@ -877,11 +904,11 @@ export default function App() {
             </div>
             <div className="relative">
               <div className="aspect-square rounded-full overflow-hidden border-8 border-white shadow-xl">
-                <img 
+                <ImageWithFallback 
                   src={content.partner.image} 
+                  fallback="https://picsum.photos/seed/roaster/800/600"
                   alt="Coffee Roaster" 
                   className="w-full h-full object-cover hover:scale-105 transition-transform duration-700"
-                  referrerPolicy="no-referrer"
                 />
               </div>
               <div className="absolute -bottom-4 -right-4 w-32 h-32 bg-brand-accent/10 rounded-full -z-10"></div>
@@ -909,11 +936,11 @@ export default function App() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {Array.isArray(content.gallery) && content.gallery.filter(url => url && url.trim() !== "").map((imgUrl: string, i: number) => (
               <div key={i} className="rounded-xl overflow-hidden aspect-[3/4] group relative">
-                <img 
+                <ImageWithFallback 
                   src={imgUrl} 
+                  fallback={`https://picsum.photos/seed/cafe${i+10}/600/800`}
                   alt="Gallery" 
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                  referrerPolicy="no-referrer"
                 />
                 <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                   <Instagram className="text-white w-8 h-8 drop-shadow-lg" />
